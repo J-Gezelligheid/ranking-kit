@@ -89,8 +89,14 @@
 .fdu-A {
     background-color: #b94a48;
 }
+.fdu-A- {
+    background-color: #c67605;
+}
 .fdu-B {
     background-color: #f89406;
+}
+.fdu-C {
+    background-color: #468847;
 }
 
 .sjtu-A {
@@ -194,4 +200,3 @@
 .ccf-tooltip:hover .ccf-tooltiptext {
     visibility: visible;
 }
-

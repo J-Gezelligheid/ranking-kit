@@ -30,27 +30,17 @@ fdu.getRankingInfoEn = function(name) {
 	let rankingInfo = {};
 	rankingInfo.rankings = [];
 	rankingInfo.info = '';
-	let ranking = fdu.rankingFullNameEn[name];
-	if (ranking == null){
-		ranking = fdu.rankingFullNameEn[name.replace("AND","&")];
-	}
-	if (ranking == null){
-		ranking = fdu.rankingFullNameEn[name.replace("&","AND")];
+	let ranking;
+	let normalizedName = (name || "").trim().toUpperCase();
+	let name_list = processNameEn(normalizedName);
+	for(let i = 0; i < name_list.length; i++) {
+		ranking = fdu.rankingFullNameEn[name_list[i]];
+		if(ranking != null){
+			break;
+		}
 	}
 	if (ranking == null) {
-		ranking = ""
-		var pattern = /(?<=THE ).*/;
-		if (name.match(pattern)){
-			var new_ranking = fdu.rankingFullNameEn[name.match(pattern)[0]];
-			if (new_ranking == null){
-				new_ranking = fdu.rankingFullNameEn[name.match(pattern)[0].replace("AND","&")];
-				if(new_ranking){
-					ranking = "FDU " + new_ranking;
-				}
-			}else{
-				ranking = "FDU " + new_ranking;
-			}
-		}
+		ranking = "";
 	} else {
 		ranking = "FDU " + ranking;
 	}
@@ -67,8 +57,12 @@ fdu.getRankingClass = function(rankings) {
 	for (let result of rankings) { // 
 		if (result == "FDU A") {
 			return 'fdu-A';
+		} else if (result == "FDU A-") {
+			return 'fdu-A-';
 		} else if (result == "FDU B") {
 			return 'fdu-B';
+		} else if (result == "FDU C") {
+			return 'fdu-C';
 		} 
 	}
 	return 'fdu-none';
@@ -93,4 +87,3 @@ fdu.getRankingSpanEn = function(name) {
 	}
 	return span;
 }
-

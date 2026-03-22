@@ -58,7 +58,7 @@ function start(){
 			scholar.rankSpanListSwufe.push(sciif.getRankingSpanEn);
 		}
 		if (optionCheckd.includes("fdu")){
-			scholar.rankSpanListSwufe.push(fdu.getRankingSpan);
+			scholar.rankSpanListSwufe.push(fdu.getRankingSpanEn);
 		}
 		if (optionCheckd.includes("sjtu")){
 			scholar.rankSpanListSwufe.push(sjtu.getRankingSpan);
