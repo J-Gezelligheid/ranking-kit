@@ -1,138 +1,191 @@
 const scholar = {};
 
 scholar.rankSpanList = [];
-
 scholar.rankSpanListSwufe = [];
+scholar.refreshTimer = null;
 
 scholar.run = function() {
-	let url = window.location.pathname;
-	if (url == "/scholar") {
-		scholar.appendRank();
-	} else if (url == "/citations") {
-		scholar.appendRanks();
-		document.getElementById("gsc_bpf_more").addEventListener("click", function() {
-			scholar.appendRanks();
-		}, false);
+	scholar.refresh();
+	scholar.observe();
+};
 
+scholar.observe = function() {
+	if (scholar.observer != null || document.body == null) {
+		return;
+	}
+
+	scholar.observer = new MutationObserver(function(mutations) {
+		for (let mutation of mutations) {
+			if (mutation.addedNodes != null && mutation.addedNodes.length > 0) {
+				scholar.scheduleRefresh();
+				return;
+			}
+		}
+	});
+
+	scholar.observer.observe(document.body, {
+		childList: true,
+		subtree: true
+	});
+};
+
+scholar.scheduleRefresh = function() {
+	if (scholar.refreshTimer != null) {
+		clearTimeout(scholar.refreshTimer);
+	}
+
+	scholar.refreshTimer = setTimeout(function() {
+		scholar.refreshTimer = null;
+		scholar.refresh();
+	}, 200);
+};
+
+scholar.refresh = function() {
+	let pathname = window.location.pathname;
+
+	if (pathname === "/scholar") {
+		scholar.appendSearchRanks();
+	} else if (pathname === "/citations") {
+		scholar.appendProfileRanks();
 	}
 };
-/**
- *  睡眠函数
- *  @param numberMillis -- 要睡眠的毫秒数
- */
-function sleep(numberMillis) {
-	var now = new Date();
-	var exitTime = now.getTime() + numberMillis;
-	while (true) {
-		now = new Date();
-		if (now.getTime() > exitTime)
+
+scholar.appendSearchRanks = function() {
+	let elements = $(".gs_r.gs_or.gs_scl");
+
+	elements.each(function() {
+		let result = $(this);
+		if (result.attr("data-ranking-kit-checked") === "1") {
 			return;
-	}
-}
+		}
 
+		let container = result.find(".gs_ri").first();
+		if (!container.length) {
+			container = result;
+		}
 
-scholar.appendRank = function() {
-	let elements = $("#gs_res_ccl_mid > div > div.gs_ri");
-	elements.each(function() {
-		let node = $(this).find("h3 > a:first");	// 加first，不然和sci-hub 插件冲突
-		let title = node.text().replace(/[^A-z]/g, " ");
-		let data = $(this)
-			.find("div.gs_a")
-			.text()
-			.replace(/[\,\-\…]/g, "")
-			.split(" ");
-		let author = data[1];
-		let year = data.slice(-3)[0];
-		let pattern = /(?<=- ).*?(?=, [0-9]{4})/;
-		let journal = $(this)
-			.find("div.gs_a")
-			.text().match(pattern);
-		let q_key_pattern = /(?<=related:).*?(?=:scholar)/;
-		let q_key = $(this).find('div.gs_fl > a:nth-child(4)').attr('href').toString().match(q_key_pattern);
-		fetchRank(node, title, author, year, journal, q_key);
+		let node = container.find(".gs_rt a:first");
+		if (!node.length) {
+			node = container.find(".gs_rt").first();
+		}
+
+		let journal = scholar.extractSearchSource(container);
+		if (node.length && journal.length) {
+			scholar.injectRankings(node, journal);
+		}
+
+		result.attr("data-ranking-kit-checked", "1");
 	});
 };
 
-scholar.appendRanks = function() {
+scholar.appendProfileRanks = function() {
 	let elements = $("tr.gsc_a_tr");
+
 	elements.each(function() {
-		let node = $(this).find("td.gsc_a_t > a:first");	// 加first，不然和sci-hub 插件冲突
-		if (!node.next().hasClass("ccf-ranking")) {
-			let title = node.text().replace(/[^A-z]/g, " ");
-			let author = $(this)
-				.find("div.gs_gray")
-				.text()
-				.replace(/[\,\…]/g, "")
-				.split(" ")[1];
-			let year = $(this).find("td.gsc_a_y").text();
-			let journal = $(this).find("div.gs_gray")[1].textContent.match(/.*?(?= [0-9])/);
-			let q_key = node.attr("data-href");
-			fetchRank(node, title, author, year, journal, q_key);
+		let row = $(this);
+		if (row.attr("data-ranking-kit-checked") === "1") {
+			return;
 		}
+
+		let node = row.find("a.gsc_a_at:first");
+		if (!node.length) {
+			node = row.find("td.gsc_a_t > a:first");
+		}
+
+		let journal = scholar.extractProfileSource(row);
+		if (node.length && journal.length) {
+			scholar.injectRankings(node, journal);
+		}
+
+		row.attr("data-ranking-kit-checked", "1");
 	});
 };
 
-function fetchRank(node, title, author, year, journal, q_key) {
+scholar.injectRankings = function(node, sourceName) {
+	let anchor = $(node);
+	let normalizedName = scholar.normalizeRankingName(sourceName);
 
+	for (let getRankSpan of scholar.rankSpanListSwufe) {
+		let span = getRankSpan(normalizedName);
+		if (span == null || span.length === 0) {
+			continue;
+		}
 
-	if (journal != null) {
-		console.log(title);
-		journal_str = journal[0];
-		if (journal_str.match(/.*?(?=,)/)) {
-			journal_str = journal_str.match(/.*?(?=,)/)[0];
+		anchor.after(span);
+		anchor = span;
+	}
+};
+
+scholar.extractSearchSource = function(container) {
+	let metaText = container.find(".gs_a").first().text();
+	return scholar.extractSourceFromMeta(metaText);
+};
+
+scholar.extractProfileSource = function(row) {
+	let metaBlocks = row.find("div.gs_gray");
+	if (metaBlocks.length < 2) {
+		return "";
+	}
+
+	return scholar.cleanSourceName($(metaBlocks[1]).text());
+};
+
+scholar.extractSourceFromMeta = function(metaText) {
+	let normalized = scholar.normalizeScholarText(metaText);
+	if (normalized.length === 0) {
+		return "";
+	}
+
+	let segments = normalized.split(/\s+-\s+/).map(function(segment) {
+		return segment.trim();
+	}).filter(function(segment) {
+		return segment.length > 0;
+	});
+
+	if (segments.length >= 2) {
+		let candidate = scholar.cleanSourceName(segments[1]);
+		if (candidate.length > 0) {
+			return candidate;
 		}
-		if (journal_str.match("…") === null) {
-			for (let getRankSpan of scholar.rankSpanListSwufe) {
-				$(node).after(getRankSpan(journal_str.toUpperCase()));
-			}
-		} else {
-			var sleep_time = Math.floor(Math.random() * (2000 - 1000 + 1) + 500);
-			// var sleep_time = Math.floor(Math.random());
-			sleep(sleep_time);
-			if (q_key) {
-				if (q_key.toString().match(/citation/)) {
-					cite_api_format = q_key;
-					var cite_xhr = new XMLHttpRequest();
-					cite_xhr.open("GET", cite_api_format, true);
-					cite_xhr.onreadystatechange = function() {
-						if (cite_xhr.readyState == 4) {
-							var resp = cite_xhr.responseText;
-							if (resp) {
-								var journal = resp.match(/(?<=<div class="gsc_vcd_value">).*?(?=<\/div>)/g)
-								if (journal) {
-									journal_str = journal[2];
-									for (let getRankSpan of scholar.rankSpanListSwufe) {
-										console.log(title);
-										$(node).after(getRankSpan(journal_str.toUpperCase()));
-									}
-								}
-							}
-						}
-					}
-					cite_xhr.send();
-				} else {
-					let code = q_key[0];
-					cite_api_format = document.location.hostname + "?q=info:" + code +
-						":scholar.google.com/&output=cite&scirp=0&hl=zh-CN";
-					var cite_xhr = new XMLHttpRequest();
-					cite_xhr.open("GET", cite_api_format, true);
-					cite_xhr.onreadystatechange = function() {
-						if (cite_xhr.readyState == 4) {
-							var resp = cite_xhr.responseText;
-							if (resp) {
-								var journal = resp.match(/(?<=]..).*?(?=,|\.)/);
-								if (journal) {
-									journal_str = journal[0];
-									for (let getRankSpan of scholar.rankSpanListSwufe) {
-										$(node).after(getRankSpan(journal_str.toUpperCase()));
-									}
-								}
-							}
-						}
-					}
-					cite_xhr.send();
-				}
-			}
-		}
-	};
+	}
+
+	let match = normalized.match(/-\s*(.*?)(?:,\s*(?:19|20)\d{2}\b|$)/);
+	if (match != null) {
+		return scholar.cleanSourceName(match[1]);
+	}
+
+	return "";
+};
+
+scholar.cleanSourceName = function(text) {
+	let name = scholar.normalizeScholarText(text);
+	if (name.length === 0) {
+		return "";
+	}
+
+	name = name.replace(/^\[[^\]]+\]\s*/, "");
+	name = name.replace(/^\.{3}\s*/, "");
+	name = name.replace(/\s*\.{3}\s*$/, "");
+	name = name.replace(/,\s*(?:19|20)\d{2}\b.*$/, "");
+	name = name.replace(/\s+(?:19|20)\d{2}\b.*$/, "");
+	name = name.replace(/^["']+|["']+$/g, "");
+
+	return name.trim();
+};
+
+scholar.normalizeScholarText = function(text) {
+	return (text || "")
+		.replace(/\u2026/g, "...")
+		.replace(/[\u2013\u2014]/g, "-")
+		.replace(/\s+/g, " ")
+		.trim();
+};
+
+scholar.normalizeRankingName = function(name) {
+	let cleaned = scholar.cleanSourceName(name);
+	if (/[a-z]/i.test(cleaned)) {
+		return cleaned.toUpperCase();
+	}
+
+	return cleaned;
 };
