@@ -1,7 +1,7 @@
 
 # 简介
-
-本插件正式名称为**Zor's Ranking Kit**，是基于 [museremarkable/swufe_ccf_show_ranking](https://github.com/museremarkable/swufe_ccf_show_ranking) 二次开发的项目，仅保留了个人认为有用的期刊分级信息。
+核心更新：浏览器版本原因导致的原插件无法使用等问题。
+本插件核心来自**Zor's Ranking Kit**，是基于 [museremarkable/swufe_ccf_show_ranking](https://github.com/museremarkable/swufe_ccf_show_ranking) 二次开发的项目，仅保留了个人认为有用的期刊分级信息。
 
 受多方限制影响，**easyScholar**最近开启了付费模型。
 
