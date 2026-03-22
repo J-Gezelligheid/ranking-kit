@@ -14,17 +14,19 @@ zhiwang.addRankings = function() {
 
 	results.each(function(index) {
 		let result = $(this);
-		var parent = result.parent("td");
-		var flag = $(parent);
+		var parent = result.closest("td");
 
-		if (flag.find("span").length == 0) {
-			let source = result.text();
-			if (source.length != 0) {
-				let name = source;
-				for (let getRankingSpan of zhiwang.rankingSpanProvider) {
-					result.after(getRankingSpan(name));
-				}
+		if (parent.attr("data-ranking-kit-injected") === "1") {
+			return;
+		}
+
+		let source = result.text().trim();
+		if (source.length != 0) {
+			for (let getRankingSpan of zhiwang.rankingSpanProvider) {
+				result.after(getRankingSpan(source));
 			}
+			// Mark the cell so we do not inject the same badges again on the next tick.
+			parent.attr("data-ranking-kit-injected", "1");
 		}
 	});
 };

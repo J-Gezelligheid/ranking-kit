@@ -1,6 +1,25 @@
 let optionCheckd;
 let default_displayUnit = ['all', 'sci', 'swufe', 'ccf', 'cufe', 'sciif', 'fdu', 'sjtu', 'cssci', 'xmu', 'ruc', 'cscd', 'uibe', 'swjtu', 'xdu','sci-base', 'sci-up', 'pku'];
 
+// CNKI has changed result-page routes several times, so match by the current
+// result URL patterns instead of the old hard-coded defaultresult path.
+function isCnkiResultPage() {
+	const href = location.href.toLowerCase();
+	const pathname = location.pathname.toLowerCase();
+	const cnkiHost = href.includes("cnki.net") || href.includes("webvpn.swufe.edu.cn");
+
+	if (!cnkiHost) {
+		return false;
+	}
+
+	return pathname.includes("/defaultresult/index")
+		|| pathname.includes("/kns/brief/result.aspx")
+		|| href.includes("/defaultresult/index")
+		|| href.includes("/kns/brief/result.aspx")
+		|| pathname.includes("/advsearch")
+		|| href.includes("/advsearch");
+}
+
 function checkOption() {
 	chrome.storage.sync.get({"displayUnit": default_displayUnit}, function(items) {
 		optionCheckd = items["displayUnit"];
@@ -70,9 +89,7 @@ function start(){
 			scholar.rankSpanListSwufe.push(swufe.getRankingSpan);
 		}
 		scholar.run();
-	} else if (location.href.startsWith(
-			"https://webvpn.swufe.edu.cn/https/77726476706e69737468656265737421fbf952d2243e635930068cb8/kns8/defaultresult/index"
-		) || location.href.startsWith("https://kns.cnki.net/kns8/defaultresult") || location.href.startsWith("https://kns.cnki.net/KNS8/AdvSearch")) {
+	} else if (isCnkiResultPage()) {
 		if(optionCheckd.includes("cufe")){
 			zhiwang.rankingSpanProvider.push(cufe.getRankingSpan);	
 		}
